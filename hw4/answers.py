@@ -33,7 +33,16 @@ def part1_rnn_hyperparams():
     )
     # TODO: Set the hyperparameters to train the model.
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    hypers.update(
+        batch_size=64,
+        seq_len=64,
+        h_dim=256,
+        n_layers=3,
+        dropout=0.2,
+        learn_rate=1e-3,
+        lr_sched_factor=0.5,
+        lr_sched_patience=2,
+    )
     # ========================
     return hypers
 
@@ -43,7 +52,8 @@ def part1_generation_params():
     temperature = 0.0001
     # TODO: Tweak the parameters to generate a literary masterpiece.
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    start_seq = "ACT I."
+    temperature = 0.5
     # ========================
     return start_seq, temperature
 
@@ -93,7 +103,15 @@ def part2_transformer_encoder_hyperparams():
 
     # TODO: Tweak the hyperparameters to train the transformer encoder.
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    hypers.update(
+        embed_dim=64,
+        num_heads=4,
+        num_layers=2,
+        hidden_dim=128,
+        window_size=16,
+        droupout=0.1,
+        lr=1e-3,
+    )
     # ========================
     return hypers
 

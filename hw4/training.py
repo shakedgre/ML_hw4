@@ -93,7 +93,22 @@ class Trainer(abc.ABC):
             #  - Implement early stopping. This is a very useful and
             #    simple regularization technique that is highly recommended.
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            train_result = self.train_epoch(dl_train, verbose=verbose, **kw)
+            test_result = self.test_epoch(dl_test, verbose=verbose, **kw)
+            train_loss += train_result.losses
+            train_acc.append(train_result.accuracy)
+            test_loss += test_result.losses
+            test_acc.append(test_result.accuracy)
+            actual_num_epochs += 1
+            if best_acc is None or test_result.accuracy > best_acc:
+                best_acc = test_result.accuracy
+                epochs_without_improvement = 0
+                save_checkpoint = True
+            else:
+                epochs_without_improvement += 1
+            if early_stopping and epochs_without_improvement >= early_stopping:
+                self._print(f"*** Early stopping after {epoch+1} epochs", verbose)
+                break
             # ========================
 
             # Save model checkpoint if requested
@@ -221,14 +236,14 @@ class RNNTrainer(Trainer):
     def train_epoch(self, dl_train: DataLoader, **kw):
         # TODO: Implement modifications to the base method, if needed.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.hidden_state = None
         # ========================
         return super().train_epoch(dl_train, **kw)
 
     def test_epoch(self, dl_test: DataLoader, **kw):
         # TODO: Implement modifications to the base method, if needed.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.hidden_state = None
         # ========================
         return super().test_epoch(dl_test, **kw)
 
@@ -246,7 +261,13 @@ class RNNTrainer(Trainer):
         #  - Update params
         #  - Calculate number of correct char predictions
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.optimizer.zero_grad()
+        y_pred, self.hidden_state = self.model(x, self.hidden_state)
+        loss = self.loss_fn(y_pred.transpose(1, 2), y)
+        loss.backward()
+        self.optimizer.step()
+        self.hidden_state = self.hidden_state.detach()
+        num_correct = (y_pred.argmax(dim=2) == y).sum()
         # ========================
 
         # Note: scaling num_correct by seq_len because each sample has seq_len
@@ -266,7 +287,10 @@ class RNNTrainer(Trainer):
             #  - Loss calculation
             #  - Calculate number of correct predictions
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            y_pred, self.hidden_state = self.model(x, self.hidden_state)
+            self.hidden_state = self.hidden_state.detach()
+            loss = self.loss_fn(y_pred.transpose(1, 2), y)
+            num_correct = (y_pred.argmax(dim=2) == y).sum()
             # ========================
 
         return BatchResult(loss.item(), num_correct.item() / seq_len)
@@ -285,7 +309,13 @@ class TransformerEncoderTrainer(Trainer):
         # TODO:
         #  fill out the training loop.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        self.optimizer.zero_grad()
+        logits = self.model(input_ids, attention_mask)
+        loss = self.loss_fn(logits, label)
+        loss.backward()
+        self.optimizer.step()
+        preds = torch.round(torch.sigmoid(logits))
+        num_correct = (preds == label).sum()
         # ========================
         
         
@@ -303,7 +333,10 @@ class TransformerEncoderTrainer(Trainer):
             # TODO:
             #  fill out the testing loop.
             # ====== YOUR CODE: ======
-            raise NotImplementedError()
+            logits = self.model(input_ids, attention_mask)
+            loss = self.loss_fn(logits, label)
+            preds = torch.round(torch.sigmoid(logits))
+            num_correct = (preds == label).sum()
             # ========================
 
             

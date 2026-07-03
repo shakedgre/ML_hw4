@@ -38,7 +38,33 @@ def sliding_window_attention(q, k, v, window_size, padding_mask=None):
     ## Think how you can obtain the indices corresponding to the entries in the sliding windows using tensor operations (without loops),
     ## and then use these indices to compute the dot products directly.
     # ====== YOUR CODE: ======
-    raise NotImplementedError()
+    half_window = window_size // 2
+    offsets = torch.arange(-half_window, half_window + 1, device=q.device)
+    centers = torch.arange(seq_len, device=q.device).unsqueeze(1)
+    win_idx = centers + offsets
+    valid = (win_idx >= 0) & (win_idx < seq_len)
+    win_idx = win_idx.clamp(0, seq_len - 1)
+
+    k_win = k[..., win_idx, :]
+    v_win = v[..., win_idx, :]
+    scores = (q.unsqueeze(-2) * k_win).sum(dim=-1) / math.sqrt(embed_dim)
+    valid = valid.view((1,) * (q.dim() - 2) + valid.shape)
+    if padding_mask is not None:
+        key_valid = padding_mask[:, win_idx]
+        if q.dim() == 4:
+            key_valid = key_valid.unsqueeze(1)
+        valid = valid & key_valid.bool()
+    scores = scores.masked_fill(~valid, -1e9)
+    weights = torch.softmax(scores, dim=-1) * valid
+    weights = weights / weights.sum(dim=-1, keepdim=True).clamp_min(1e-12)
+    values = (weights.unsqueeze(-1) * v_win).sum(dim=-2)
+    attention = (weights.unsqueeze(-1) * F.one_hot(win_idx, seq_len).to(weights.dtype)).sum(dim=-2)
+    if padding_mask is not None:
+        query_valid = padding_mask.bool()
+        if q.dim() == 4:
+            query_valid = query_valid.unsqueeze(1)
+        values = values * query_valid.unsqueeze(-1)
+        attention = attention * query_valid.unsqueeze(-1)
     # ========================
 
 
@@ -85,7 +111,7 @@ class MultiHeadAttention(nn.Module):
         # TODO:
         # call the sliding window attention function you implemented
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        values, attention = sliding_window_attention(q, k, v, self.window_size, padding_mask)
         # ========================
 
         values = values.permute(0, 2, 1, 3) # [Batch, SeqLen, Head, Dims]
@@ -167,7 +193,10 @@ class EncoderLayer(nn.Module):
         #   3) Apply a feed-forward layer to the output of step 2, and then apply dropout again.
         #   4) Add a second residual connection and normalize again.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        attn_out = self.self_attn(x, padding_mask)
+        x = self.norm1(x + self.dropout(attn_out))
+        ff_out = self.feed_forward(x)
+        x = self.norm2(x + self.dropout(ff_out))
         # ========================
         
         return x
@@ -217,7 +246,12 @@ class Encoder(nn.Module):
         #  5) Apply the classification MLP to the output vector corresponding to the special token [CLS] 
         #     (always the first token) to receive the logits.
         # ====== YOUR CODE: ======
-        raise NotImplementedError()
+        output = self.encoder_embedding(sentence)
+        output = self.positional_encoding(output)
+        output = self.dropout(output)
+        for layer in self.encoder_layers:
+            output = layer(output, padding_mask)
+        output = self.classification_mlp(output[:, 0, :]).squeeze(-1)
         # ========================
         
         
