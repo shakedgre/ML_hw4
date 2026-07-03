@@ -194,7 +194,7 @@ class SequenceBatchSampler(torch.utils.data.Sampler):
         :param dataset: The dataset for which to create indices.
         :param batch_size: Number of indices in each batch.
         """
-        super().__init__(dataset)
+        super().__init__()
         self.dataset = dataset
         self.batch_size = batch_size
 
